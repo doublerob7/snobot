@@ -2,7 +2,7 @@ try:
     import smbus
 except ImportError:
     import smbus2 as smbus
-import datetime
+import math
 
 
 class I2CDevice:
@@ -76,35 +76,27 @@ class MD25(I2CDevice):
     3 - Speed1 reg is speed for both motors, Speed2 becomes speed difference (-128 rev, 0 stop, 127 forward)
     """
 
-    def __init__(self, i2c_port=1, address=0xB0, mode=0):
+    def __init__(self, i2c_port=1, address=0xB0, mode=2):
         super().__init__(i2c_port=i2c_port, address=address)
         self.version = self._read_reg(REGISTER['Version'])
-        self.set_mode(mode)
-        self.micros = float(datetime.datetime.now().microsecond) / 1000000
-        self.last_micros = self.time
-        # self.command = self._read_reg(REGISTER['Command'])
+        self.mode(mode)
+        self.enc_resolution = 360 / (2 * math.Pi)  # counts / rev (rads)
+        self.enc_count = (0, 0)
+        self.last_count = (0, 0)
 
-    def time(self):
-        self.last_micros = self.micros
-        self.micros = float(datetime.datetime.now().microsecond) / 1000000
-        return self.micros - self.last_micros
-
-    def set_mode(self, mode):
-        self._write_reg(register=REGISTER['Mode'], value=mode)
-
-    def set_speed(self, speed, motor=0):
-        self._write_reg(register=motor, value=speed)
-
-    def turn(self, amount):
-        self._write_reg(register=REGISTER['Speed2'], value=amount)
+    def mode(self, mode=None):
+        if mode is not None:
+            self._write_reg(register=REGISTER['Mode'], value=mode)
+        return self._read_reg(REGISTER['Mode'])
 
     def set_accel(self, accel):
         self._write_reg(register=REGISTER['Accel'], value=accel)
+        return self._read_reg(REGISTER['Accel'])
 
-    def get_voltage(self):
+    def voltage(self):
         return float(self._read_reg(REGISTER['Voltage'])) / 10
 
-    def get_current(self):
+    def current(self):
         return float(self._read_reg(REGISTER['Current1'])) / 10, float(self._read_reg(REGISTER['Current2'])) / 10
 
     def clear_encoders(self):
@@ -112,30 +104,47 @@ class MD25(I2CDevice):
         # self.command = self._read_reg(REGISTER['Command'])
 
     def read_encoders(self):
-        encoder_value1 = 0
-        encoder_value2 = 0
-
         encoder_list1 = self.bus.read_i2c_block_data(self.address, REGISTER['Enc1a'], 4)  # read all 4 registers
-        for byte, shift in zip(encoder_list1, range(start=24, stop=0, step=8)):
-            encoder_value1 += byte * shift  # Bytes form a signed 32-bit int, this step sums the bytes in the list
-
+        encoder_value1 = encoder_list1[0] << 24 | encoder_list1[1] << 16 | encoder_list1[2] << 8 | encoder_list1[3]
+        
         encoder_list2 = self.bus.read_i2c_block_data(self.address, REGISTER['Enc2a'], 4)
-        for byte, shift in zip(encoder_list2, range(start=24, stop=0, step=8)):
-            encoder_value2 += byte * shift
-
+        encoder_value2 = encoder_list2[0] << 24 | encoder_list2[1] << 16 | encoder_list2[2] << 8 | encoder_list2[3]
+        
+        self.last_count = self.enc_count
+        self.enc_count = (encoder_value1, encoder_value2)
+        assert self.last_count is not self.enc_count
         return encoder_value1, encoder_value2
 
-    def get_speed(self):
-        return (self.time() * speed for speed in self.read_encoders())
+    def delta_count(self):
+        return (now - last for now, last in zip(self.read_encoders(), self.last_count))
+
+    def throttle(self, speed=None):
+        if speed is not None:
+            self._write_reg(register=REGISTER['Speed1'], value=speed)
+        return self._read_reg(REGISTER['Speed1'])
+
+    def turn_amount(self, amount):
+        self._write_reg(register=REGISTER['Speed2'], value=amount)
+        return self._read_reg(REGISTER['Speed2'])
+
+    def stop():
+    if mode() == 0 or mode() == 2:
+        self._write_reg(REGISTER['Speed1'], 128)
+        self._write_reg(REGISTER['Speed2'], 128)
+    elif mode() == 1 or mode() == 3:
+        self._write_reg(REGISTER['Speed1'], 0)
+        self._write_reg(REGISTER['Speed2'], 0)
 
 
 if __name__ == '__main__':
     # TODO
-    MD25 = MD25(i2c_port=1, address=0xB0)
-    MD25.set_speed(motor=0, speed=128)
-    MD25.turn(amount=0)
+    import time
+    MD25 = MD25()
     MD25.set_accel(accel=5)
-    MD25.get_speed()
-    MD25.get_current()
-    MD25.get_voltage()
-    MD25.version()
+    print(MD25.version(), MD25.current(), MD25.voltage())
+    time.sleep(2)
+    MD25.throttle(speed=150)
+    time.sleep(1)
+    MD25.turn_amount(amount=150)
+    time.sleep(1)
+    MD25.stop()
