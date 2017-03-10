@@ -21,8 +21,12 @@ class I2CDevice:
         try:
             try:
                 self.bus = smbus.SMBus(self.i2c_port)
+                if self.debug:
+                    print('Opening I2C port', self.i2c_port)
             except FileNotFoundError:  # Exception for Raspi version. port 0 vs port 1
                 self.bus = smbus.SMBus(1 - self.i2c_port)
+                if self.debug:
+                    print('Failed. Opening I2C port', 1 - self.i2c_port)
 
             if self.debug:
                 print('Bus open.')
@@ -76,13 +80,15 @@ class MD25(I2CDevice):
     3 - Speed1 reg is speed for both motors, Speed2 becomes speed difference (-128 rev, 0 stop, 127 forward)
     """
 
-    def __init__(self, i2c_port=1, address=0xB0, mode=2):
-        super().__init__(i2c_port=i2c_port, address=address)
+    def __init__(self, i2c_port=1, address=0x58, mode=3, debug=False):
+        super().__init__(i2c_port=i2c_port, address=address, debug=debug)
         self.version = self._read_reg(REGISTER['Version'])
         self.mode(mode)
-        self.enc_resolution = 360 / (2 * math.Pi)  # counts / rev (rads)
+        self.enc_resolution = 360 / (2 * math.pi)  # counts / rev (rads)
         self.enc_count = (0, 0)
         self.last_count = (0, 0)
+        self._timeout = None
+        self.timeout(True)
 
     def mode(self, mode=None):
         if mode is not None:
@@ -98,6 +104,18 @@ class MD25(I2CDevice):
 
     def current(self):
         return float(self._read_reg(REGISTER['Current1'])) / 10, float(self._read_reg(REGISTER['Current2'])) / 10
+
+    def timeout(self, value=None):
+        if value is None:
+            pass
+        if value:
+            self._write_reg(REGISTER['Command'], 0x33)
+            self._timeout = True
+        else:
+            self._write_reg(REGISTER['Command'], 0x32)
+            self._timeout = False
+        return self._timeout
+        
 
     def clear_encoders(self):
         self._write_reg(REGISTER['Command'], 0x20)
@@ -127,24 +145,28 @@ class MD25(I2CDevice):
         self._write_reg(register=REGISTER['Speed2'], value=amount)
         return self._read_reg(REGISTER['Speed2'])
 
-    def stop():
-    if mode() == 0 or mode() == 2:
-        self._write_reg(REGISTER['Speed1'], 128)
-        self._write_reg(REGISTER['Speed2'], 128)
-    elif mode() == 1 or mode() == 3:
-        self._write_reg(REGISTER['Speed1'], 0)
-        self._write_reg(REGISTER['Speed2'], 0)
+    def stop(self):
+        mode = self.mode()
+        if mode == 0 or mode == 2:
+            self._write_reg(REGISTER['Speed1'], 128)
+            self._write_reg(REGISTER['Speed2'], 128)
+        elif mode == 1 or mode == 3:
+            self._write_reg(REGISTER['Speed1'], 0)
+            self._write_reg(REGISTER['Speed2'], 0)
 
 
 if __name__ == '__main__':
     # TODO
     import time
-    MD25 = MD25()
+    MD25 = MD25(debug=True)
     MD25.set_accel(accel=5)
-    print(MD25.version(), MD25.current(), MD25.voltage())
+    MD25.timeout(False)
+    print(MD25.version, MD25.current(), MD25.voltage())
     time.sleep(2)
-    MD25.throttle(speed=150)
-    time.sleep(1)
-    MD25.turn_amount(amount=150)
-    time.sleep(1)
+    MD25.turn_amount(amount=0)
+    MD25.throttle(speed=20)
+    time.sleep(5)
+    MD25.throttle(0)
+    MD25.turn_amount(amount=20)
+    time.sleep(5)
     MD25.stop()
