@@ -1,0 +1,2 @@
+base_controller
+-DCATKIN_DEVEL_PREFIX=/home/robert/sno_bot/devel -DCMAKE_INSTALL_PREFIX=/home/robert/sno_bot/install -G Unix Makefiles
