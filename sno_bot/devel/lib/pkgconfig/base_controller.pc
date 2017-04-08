@@ -1,8 +1,0 @@
-prefix=/home/robert/sno_bot/devel
-
-Name: base_controller
-Description: Description of base_controller
-Version: 0.0.0
-Cflags: 
-Libs: -L/home/robert/sno_bot/devel/lib 
-Requires: 
