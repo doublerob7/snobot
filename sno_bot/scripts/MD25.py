@@ -12,6 +12,7 @@ class I2CDevice(object):
         self.address = address
         self.bus = None
         self.debug = debug
+        self.connected = False
         self._connect()
 
     def _connect(self):
@@ -28,6 +29,7 @@ class I2CDevice(object):
                 if self.debug:
                     print('Failed. Opening I2C port', 1 - self.i2c_port)
 
+            self.connected = True
             if self.debug:
                 print('Bus open.')
 
@@ -37,12 +39,18 @@ class I2CDevice(object):
             return
 
     def _write_reg(self, register, value):
-        self.bus.write_byte_data(self.address, register, value)
+        if self.connected:
+            self.bus.write_byte_data(self.address, register, value)
+        else:
+            value = None
         if self.debug:
             print("Wrote {} to register {} at address {}".format(value, register, self.address))
 
     def _read_reg(self, register):
-        value = self.bus.read_byte_data(self.address, register)
+        if self.connected:
+            value = self.bus.read_byte_data(self.address, register)
+        else:
+            value = None
         if self.debug:
             print("Read {} from register {} at address {}".format(value, register, self.address))
         return value
@@ -100,10 +108,16 @@ class MD25(I2CDevice):
         return self._read_reg(REGISTER['Accel'])
 
     def voltage(self):
-        return float(self._read_reg(REGISTER['Voltage'])) / 10
+        try:
+            return float(self._read_reg(REGISTER['Voltage'])) / 10
+        except TypeError:
+            return None
 
     def current(self):
-        return float(self._read_reg(REGISTER['Current1'])) / 10, float(self._read_reg(REGISTER['Current2'])) / 10
+        try:
+            return float(self._read_reg(REGISTER['Current1'])) / 10, float(self._read_reg(REGISTER['Current2'])) / 10
+        except TypeError:
+            return None
 
     def timeout(self, value=None):
         if value is None:
