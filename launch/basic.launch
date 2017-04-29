@@ -1,0 +1,4 @@
+<launch>
+  <node name="joy_to_cmd_vel" pkg="sno_bot" type="joy_cmd_vel_node.py"/>
+  <node name="base_controller" pkg="sno_bot" type="base_controller_node.py"/>
+</launch>
