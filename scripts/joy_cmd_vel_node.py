@@ -39,9 +39,9 @@ Index	Axis name on the actual controller
 
 def callback(data):
 	twist = Twist()
-	pub = rospy.Publisher("cmd_vel", Twist, queue_size=0)
-	twist.linear.x = int(data.axes[1] * 64)
-	twist.angular.z = int(-data.axes[0] * 64)
+	pub = rospy.Publisher("turtle1/cmd_vel", Twist, queue_size=0)
+	twist.linear.x = int(data.axes[1] )
+	twist.angular.z = int(-data.axes[0])
 	pub.publish(twist)
 	#rospy.loginfo("I heard %s, I published %s", data.axes[0], twist.linear.x)
 	
