@@ -1,0 +1,16 @@
+<launch>
+  <arg name="model" default="$(find snobot)/models/snobot.urdf"/>
+
+      <!-- Load the snobot URDF model into the parameter server -->
+  <param name="robot_description" command="$(find xacro)/xacro.py $(arg model)" />
+  
+      <!-- Start Gazebo with the popcan arena world -->
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+        <arg name="world_name" value="$(find snobot)/worlds/popcan_arena.world"/>
+  </include>
+  
+      <!-- Spawn a SnoBot in Gazebo, taking the description from the parameter server -->
+  <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model"
+        args="-param robot_description -urdf -model snobot" />
+
+</launch>

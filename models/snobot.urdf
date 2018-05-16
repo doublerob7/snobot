@@ -1,0 +1,106 @@
+<?xml version="1.0"?>
+<!--
+    ROS model for a differential drive robot, a common project of the SnocoMakers Robotics Group.
+    
+    Gazebo model hierarchy:
+	    popbot
+	        base_footprint
+            base_link
+            left_wheel
+            right_wheel
+
+
+    TO USE:
+        cd ~/robo/ros/ws/popbot-ws
+        source devel/setup.bash
+        
+      Show in rviz:  
+      
+        roslaunch snobot rviz.launch
+       
+      Show in Gazebo:  
+      
+        roslaunch snobot gazebo.launch
+-->
+
+<robot name="snobot"
+    xmlns="http://www.ros.org/wiki/urdf"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="https://raw.github.com/laas/urdf_validator/master file:urdf.xsd"
+    xmlns:xacro="http://ros.org/wiki/xacro"    
+>
+    <xacro:include filename="$(find snobot)/models/wheel.urdf.xacro"/>
+    
+    <!-- base properties -->
+    <xacro:property name="base_radius" value="0.203" />     <!-- mm = 3 digits right of decimal -->
+    <xacro:property name="base_thickness" value="0.013" />  
+    <xacro:property name="base_mass" value="5.0" />         <!-- kg -->
+
+    <!-- wheel placement properties -->
+    <xacro:property name="base_x_origin_to_wheel_origin" value="0.000" />
+    <xacro:property name="base_y_origin_to_wheel_origin" value="0.178" /> <!-- absolute value -->
+    <xacro:property name="base_z_origin_to_wheel_origin" value="-0.030" />
+    
+    <!-- wheel physical properties -->
+    <xacro:property name="wheel_radius" value="0.050" />    <!-- mm = 3 digits right of decimal -->
+    <xacro:property name="wheel_thickness" value="0.010" /> <!-- "height" of wheel cylinder -->
+    <xacro:property name="wheel_mass" value="2.5" />        <!-- mass in kg-->
+  
+    <!-- derived values -->
+    <xacro:property name="footprint_z_origin_to_base_origin" value="${wheel_radius - base_z_origin_to_wheel_origin}" />
+   
+    
+<!-- ========================================================================================== --> 
+
+    <!-- "The base_footprint is the representation of the robot position on the floor." -->
+    <!-- See REP 120 http://www.ros.org/reps/rep-0120.html#base-footprint -->
+    <link name="base_footprint"/>
+    
+    
+    <joint name="base_joint" type="fixed">
+        <origin xyz="0 0 ${footprint_z_origin_to_base_origin}" rpy="0 0 0" />
+        <parent link="base_footprint"/>
+        <child link="base_link" />
+    </joint>
+    
+    
+    <link name="base_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <!-- Should match the collision <geometry> below --> <!--TODO: Make a "base_cylinder" macro with this -->
+                <cylinder length="${base_thickness}" radius="${base_radius}"/>
+            </geometry>
+            <material name="black">
+                <color rgba="0.25 0.25 0.25 0.75"/>
+            </material>
+        </visual>
+        <collision>
+            <geometry>
+                <!-- Should match the visual <geometry> above -->
+                <cylinder length="${base_thickness}" radius="${base_radius}"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <mass value="${base_mass}"/>
+            <inertia ixx="0.015" iyy="0.0375" izz="0.0375"
+                     ixy="0" ixz="0" iyz="0"/> <!--TODO: See if we can use cylinder_inertia macro here -->
+        </inertial>
+    </link>
+    <gazebo reference="base_link">
+        <material>Gazebo/FlatBlack</material>
+    </gazebo>
+    
+    <xacro:wheel fb="main" lr="right" parent="base_link" 
+                 translateX="${base_x_origin_to_wheel_origin}" 
+                 translateY="${-1 * base_y_origin_to_wheel_origin}"
+                 translateZ="${base_z_origin_to_wheel_origin}"
+                 flipY="1"/>
+    
+    <xacro:wheel fb="main" lr="left" parent="base_link" 
+                 translateX="${base_x_origin_to_wheel_origin}" 
+                 translateY="${base_y_origin_to_wheel_origin}" 
+                 translateZ="${base_z_origin_to_wheel_origin}"
+                 flipY="-1"/>
+        
+</robot>
